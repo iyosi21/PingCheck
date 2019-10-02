@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIGS>
+	<CONFIG>
+		<Name>PingCount</Name>
+		<Value>2</Value>
+		<Description>一度の確認で送付するPingの数</Description>
+	</CONFIG>
+	<CONFIG>
+		<Name>MaxAlive</Name>
+		<Value>5</Value>
+		<Description>Pingチェックが何回連続で失敗したら発報するか</Description>
+	</CONFIG>
+	<CONFIG>
+		<Name>SleepTime</Name>
+		<Value>10</Value>
+		<Description>1度のPingチェックで待機する秒数</Description>
+	</CONFIG>
+</CONFIGS>
