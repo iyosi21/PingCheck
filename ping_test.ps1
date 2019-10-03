@@ -3,6 +3,24 @@
 #実行ファイルのパスを格納
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+#二重起動チェック
+$mutex = New-Object System.Threading.Mutex($false, "Global¥MyPingCheck")
+try
+{
+    if (-not $mutex.WaitOne(0, $false)) {
+        $WS = New-Object -com Wscript.Shell
+        $result = $WS.Popup("Ping監視は既に実行中です")
+        $mutex.Close()
+        exit
+    }
+}
+catch [System.Threading.AbandonedMutexException]
+{
+    $WS = New-Object -com Wscript.Shell
+    $result = $WS.Popup("前回の処理は強制終了しました。監視を再開します。")
+}
+
+
 #監視対象（ホスト名orIP）
 $Hosts = [XML](Get-Content ($scriptPath + "\Hosts.xml"))
 
