@@ -20,7 +20,6 @@ catch [System.Threading.AbandonedMutexException]
     $result = $WS.Popup("前回の処理は強制終了しました。監視を再開します。")
 }
 
-
 #監視対象（ホスト名orIP）
 $Hosts = [XML](Get-Content ($scriptPath + "\Hosts.xml"))
 
@@ -51,48 +50,64 @@ $Config = [XML](Get-Content ($scriptPath + "\Config.xml"))
 $WS = New-Object -com Wscript.Shell
 $result = $WS.Popup("Ping監視を開始します")
 
-while(1){
-    for($j=0;$j -lt $Testhost.Count; $j++){
-        #ping送付実施
-        $pingAlive = @(Test-Connection $Testhost[$j] -Quiet -Count $PingCount)
-            #ping応答がある場合
-            if($pingAlive -eq $True){
-                $HostAliveCount[$j] = 0
-                if($HostAliveFlag[$j] -eq $True){
-                    $now = Get-Date -Format G
-                    Write-Output($now + " " + $Testhost[$j] + " is alive")
-                #今まで死んでいたホストが立ち上がってきた場合
-                }else{
-                    $HostAliveFlag[$j] = $True
-                    $now = Get-Date -Format G
-                    Write-Output($now + " " + $Testhost[$j] + " is recovered") 
-                    Write-Output ($now + " " + $Testhost[$j] + " is recovered") | Out-File -Append -Force ($scriptpath + "\log.txt")
-                }
-            #ping応答がない場合
-            }else{
-                $HostAliveCount[$j] = $HostAliveCount[$j] + 1
-                if($HostAliveFlag[$j] -eq $True){
-                    $now = Get-Date -Format G
-                    Write-Output($now + " " + $Testhost[$j] + " is not reachable")
-                }else{
-                    #何もしない。何かする場合はここに書く。
-                }
-            }
-        #ping応答無し状態が$MaxAliveの回数を上回った場合、発報する
-        if ($HostAliveCount[$j] -ge $MaxAlive){
-            if($HostAliveFlag[$j] -eq $True){
-                $HostAliveFlag[$j] = $False
-                $now = Get-Date -Format G
-                Write-Output($now + " " + $Testhost[$j] + " is dead") 
-                Write-Output ($now + " " + $Testhost[$j] + " is dead")  | Out-File -Append -Force ($scriptpath + "\log.txt")
-                #ここに何か発報コマンド
-            }else{
-                #今は一度死ぬと何もしないが、定期的に何か実施する場合はここに入力。
-                #何もしない
-            }
-        }
+#プロセスIDを記載したテキストファイルを配置
+#pid.textファイルがある場合は一旦削除して作成。ない場合は普通に作成
+$pid_exi = $scriptPath + "\pid.text"
+    if(Test-Path $pid_exi){
+        Remove-Item $scriptPath + "\pid.text"
+        powershell "Get-WmiObject win32_process -filter processid=$pid | ForEach-Object{$_.parentprocessid;}" > $scriptPath + "\pid.text"
+    }else{
+        powershell "Get-WmiObject win32_process -filter processid=$pid | ForEach-Object{$_.parentprocessid;}" > $scriptPath + "\pid.text"
     }
 
-#指定時間一時停止
-Start-Sleep -s $SleepTime
+
+try{
+    while(1){
+        for($j=0;$j -lt $Testhost.Count; $j++){
+            #ping送付実施
+            $pingAlive = @(Test-Connection $Testhost[$j] -Quiet -Count $PingCount)
+                #ping応答がある場合
+                if($pingAlive -eq $True){
+                    $HostAliveCount[$j] = 0
+                    if($HostAliveFlag[$j] -eq $True){
+                        $now = Get-Date -Format G
+                        Write-Output($now + " " + $Testhost[$j] + " is alive")
+                    #今まで死んでいたホストが立ち上がってきた場合
+                    }else{
+                        $HostAliveFlag[$j] = $True
+                        $now = Get-Date -Format G
+                        Write-Output($now + " " + $Testhost[$j] + " is recovered") 
+                        Write-Output ($now + " " + $Testhost[$j] + " is recovered") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    }
+                #ping応答がない場合
+                }else{
+                    $HostAliveCount[$j] = $HostAliveCount[$j] + 1
+                    if($HostAliveFlag[$j] -eq $True){
+                        $now = Get-Date -Format G
+                        Write-Output($now + " " + $Testhost[$j] + " is not reachable")
+                    }else{
+                        #何もしない。何かする場合はここに書く。
+                    }
+                }
+            #ping応答無し状態が$MaxAliveの回数を上回った場合、発報する
+            if($HostAliveCount[$j] -ge $MaxAlive){
+                if($HostAliveFlag[$j] -eq $True){
+                    $HostAliveFlag[$j] = $False
+                    $now = Get-Date -Format G
+                    Write-Output($now + " " + $Testhost[$j] + " is dead") 
+                    Write-Output ($now + " " + $Testhost[$j] + " is dead")  | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    #ここに何か発報コマンド
+                }else{
+                    #今は一度死ぬと何もしないが、定期的に何か実施する場合はここに入力。
+                    #何もしない
+                }
+            }
+        }
+
+    #指定時間一時停止
+    Start-Sleep -s $SleepTime
+    }
+}
+finally{
+    Remove-Item $scriptPath + "\pid.text"
 }
