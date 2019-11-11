@@ -15,4 +15,14 @@
 		<Value>10</Value>
 		<Description>1度のPingチェックで待機する秒数</Description>
 	</CONFIG>
+	<CONFIG>
+		<Name>PateliteIP</Name>
+		<Value>192.168.XXX.XXX</Value>
+		<Description>PteliteのIPアドレス</Description>
+	</CONFIG>
+	<CONFIG>
+		<Name>PateliteCode</Name>
+		<Value>XXXXXX</Value>
+		<Description>Pteliteの発報コード（6桁）</Description>
+	</CONFIG>
 </CONFIGS>
