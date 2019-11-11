@@ -43,6 +43,15 @@ $Config = [XML](Get-Content ($scriptPath + "\Config.xml"))
     $MaxAlive = $Config.CONFIGS.CONFIG[1].Value
 #Sleep時間(秒)
     $SleepTime = $Config.CONFIGS.CONFIG[2].Value
+#PateliteIPアドレス
+    $PateliteIPAdd = $Config.CONFIGS.CONFIG[3].Value
+#Patelite発報アドレス
+    $PateliteCole = $Config.CONFIGS.CONFIG[4].Value
+#Pateliteコマンド(点灯)
+　　$PateliteCommand = "http://" + $PateliteIPAdd + "/api/control?alert=" + $PateliteCole
+#Pateliteコマンド（消灯）
+　　$PateliteCommandClr = "http://" + $PateliteIPAdd + "/api/control?clear=1"
+
 
 #--------------------------------------------------------------------------
 
@@ -67,6 +76,15 @@ while(1){
                     $now = Get-Date -Format G
                     Write-Output($now + " " + $Testhost[$j] + " is recovered") 
                     Write-Output ($now + " " + $Testhost[$j] + " is recovered") | Out-File -Append -Force ($scriptpath + "\log.txt")
+
+                    #パトライト消灯
+                    $PateliteFlagClr = (Invoke-WebRequest $PateliteCommandClr).Content
+                    if ($PateliteFlag -eq "Success."){
+                        Write-Output ($now + " " + " patelite's nortification clear") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    }else{
+                        Write-Output ($now + " " + " patelite's nortification clear false") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    }
+                    
                 }
             #ping応答がない場合
             }else{
@@ -85,7 +103,14 @@ while(1){
                 $now = Get-Date -Format G
                 Write-Output($now + " " + $Testhost[$j] + " is dead") 
                 Write-Output ($now + " " + $Testhost[$j] + " is dead")  | Out-File -Append -Force ($scriptpath + "\log.txt")
-                #ここに何か発報コマンド
+                #パトライト発報
+                $PateliteFlag =  (Invoke-WebRequest $PateliteCommand).Content
+                if ($PateliteFlag -eq "Success."){
+                    Write-Output ($now + " " + " patelite's nortification start") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                }else{
+                    Write-Output ($now + " " + " patelite's nortification false") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                }
+
             }else{
                 #今は一度死ぬと何もしないが、定期的に何か実施する場合はここに入力。
                 #何もしない
