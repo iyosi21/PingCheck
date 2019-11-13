@@ -27,14 +27,22 @@ $Hosts = [XML](Get-Content ($scriptPath + "\Hosts.xml"))
 $Testhost = @()
 $HostAliveCount =@()
 $HostAliveFlag =@()
-for($host_i=0;$host_i -lt $Hosts.Hosts.Host.Count;$host_i++){
-    #Xmlから各ホストの情報を格納する
-    $Testhost += $Hosts.Hosts.Host[$host_i].value
+
+#Hosts.txtを$Hostsに格納
+$Hosts = Get-Content ($scriptPath + "/Hosts.txt")
+$Testhost = @()
+#---自分用コメント----
+#Get-Contentで複数行あると$Hostsは配列になるが、1行しかないと配列にならない。
+#下のforeach処理で$Hostsを$Testhostに配列として代入する。
+
+foreach ($HostArray in $Hosts) {
+    #X各ホストの情報を格納する
+    $Testhost += $HostArray
     #各ホスト死活監視用カウントに０を代入する
     $HostAliveCount += 0
     #各ホスト死活監視フラグにTrueを代入する
     $HostAliveFlag += $True
-    }
+}
 
 $Config = [XML](Get-Content ($scriptPath + "\Config.xml"))
 #一度のPingでチェックする回数
