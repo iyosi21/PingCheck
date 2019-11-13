@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Hosts>
-	<Host>host1</Host>
-	<Host>host2</Host>
+	<Host>
+		<Name>1</Name>
+		<Value>192.168.XXX.XXX</Value>
+		<Description>ホストを登録。Nameは連番、ValueはIPアドレスかホスト名</Description>
+	</Host>
+	<Host>
+		<Name>2</Name>
+		<Value>192.168.XXX.XXX</Value>
+		<Description>ホストを登録。Nameは連番、ValueはIPアドレスかホスト名</Description>
+	</Host>
 </Hosts>
-
 	
