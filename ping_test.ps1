@@ -1,9 +1,34 @@
-#変数関連
+#--------------------------------------------------------------------------
+#メッセージ表示関数（各ホストの死活状態表示、最新のステータスを１行表示）
+#--------------------------------------------------------------------------
+function PMessage($Testhost, $HostAliveCount, $HostAliveFlag, $Latest_stat, $scriptPath){
+    Clear-Host
+
+    for($j=0;$j -lt $Testhost.Count; $j++){
+        $pramhoshi=""
+        for($k=0;$k -lt $HostAliveCount[$j]; $k++){
+            $pramhoshi = $pramhoshi +"*"
+        }
+        if($HostAliveFlag -eq $True){
+            $echoAlive = "is alive" + $pramhoshi
+                }else{$echoAlive = "is dead"}
+
+        echo($Testhost[$j] + " " + $echoAlive)
+    }
+    echo $Latest_stat
+    echo $Latest_stat | Out-File -Append -Force ($scriptpath + "\log.txt")
+}
+
+#--------------------------------------------------------------------------
+メイン処理
+
 #--------------------------------------------------------------------------
 #実行ファイルのパスを格納
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
 
+#--------------------------------------------------------------------------
 #二重起動チェック
+#--------------------------------------------------------------------------
 $mutex = New-Object System.Threading.Mutex($false, "Global¥MyPingCheck")
 try
 {
@@ -21,9 +46,9 @@ catch [System.Threading.AbandonedMutexException]
 }
 
 
-#監視対象（ホスト名orIP）
-$Hosts = [XML](Get-Content ($scriptPath + "\Hosts.xml"))
-
+#--------------------------------------------------------------------------
+#監視対象（ホスト名orIP）の変数
+#--------------------------------------------------------------------------
 $Testhost = @()
 $HostAliveCount =@()
 $HostAliveFlag =@()
@@ -44,6 +69,9 @@ foreach ($HostArray in $Hosts) {
     $HostAliveFlag += $True
 }
 
+#--------------------------------------------------------------------------
+#設定系の変数
+#--------------------------------------------------------------------------
 $Config = [XML](Get-Content ($scriptPath + "\Config.xml"))
 #一度のPingでチェックする回数
     $PingCount = $Config.CONFIGS.CONFIG[0].Value
@@ -60,14 +88,26 @@ $Config = [XML](Get-Content ($scriptPath + "\Config.xml"))
 #Pateliteコマンド（消灯）
 　　$PateliteCommandClr = "http://" + $PateliteIPAdd + "/api/control?clear=1"
 
+#--------------------------------------------------------------------------
+#メッセージ変数
+#--------------------------------------------------------------------------
+$Latest_stat　#最新ステータス
+$echoAlive　#ステータス表示の死活表示
+$pramhoshi #Ping失敗した時の星の数
+
+
+$WS = New-Object -com Wscript.Shell
 
 #--------------------------------------------------------------------------
-
 #実行部分
 #--------------------------------------------------------------------------
-$WS = New-Object -com Wscript.Shell
 $result = $WS.Popup("Ping監視を開始します")
-
+$now = Get-Date -Format G
+$Latest_stat = ($now + " Ping Monitoring Start")
+PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+#--------------------------------------------------------------------------
+#メインループ
+#--------------------------------------------------------------------------
 while(1){
     for($j=0;$j -lt $Testhost.Count; $j++){
         #ping送付実施
@@ -77,14 +117,14 @@ while(1){
                 $HostAliveCount[$j] = 0
                 if($HostAliveFlag[$j] -eq $True){
                     $now = Get-Date -Format G
-                    Write-Output($now + " " + $Testhost[$j] + " is alive")
-                    Write-Output($now + " " + $Testhost[$j] + " is alive") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    $Latest_stat = ($now + " " + $Testhost[$j] + " is alive")
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                 #今まで死んでいたホストが立ち上がってきた場合
                 }else{
                     $HostAliveFlag[$j] = $True
                     $now = Get-Date -Format G
-                    Write-Output($now + " " + $Testhost[$j] + " is recovered") 
-                    Write-Output ($now + " " + $Testhost[$j] + " is recovered") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    $Latest_stat = ($now + " " + $Testhost[$j] + " is recovered")
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
 
                     #パトライト消灯
                     try{
@@ -94,16 +134,18 @@ while(1){
                         $clr_stat = $_.Exception.status
                     }
                     $now = Get-Date -Format G
-                    Write-Output($now + " patelite's nortification clearing...") 
-                    Write-Output($now + " patelite's nortification clearing...") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    $Latest_stat = ($now + " patelite's nortification clearing...")
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+
                     if ($clr_stat -eq "ConnectFailure" -eq $True){
                         #失敗
-                        Write-Output ($now + " patelite's nortification clear fault")
-                        Write-Output ($now + " patelite's nortification clear fault") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                        $Latest_stat = ($now + " patelite's nortification clear fault")
+                        PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+
                     }else{
                         #成功
-                        Write-Output ($now + " patelite's nortification clear")
-                        Write-Output ($now + " patelite's nortification clear") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                        $Latest_stat = ($now + " patelite's nortification clear")
+                        PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                     }
                     #test_statをクリアにする。
                     $clr_stat = ""
@@ -113,8 +155,8 @@ while(1){
                 $HostAliveCount[$j] = $HostAliveCount[$j] + 1
                 if($HostAliveFlag[$j] -eq $True){
                     $now = Get-Date -Format G
-                    Write-Output($now + " " + $Testhost[$j] + " is not reachable")
-                    Write-Output($now + " " + $Testhost[$j] + " is not reachable") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    $Latest_stat = ($now + " " + $Testhost[$j] + " is not reachable")
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                 }else{
                     #何もしない。何かする場合はここに書く。
                 }
@@ -124,11 +166,11 @@ while(1){
             if($HostAliveFlag[$j] -eq $True){
                 $HostAliveFlag[$j] = $False
                 $now = Get-Date -Format G
-                Write-Output($now + " " + $Testhost[$j] + " is dead") 
-                Write-Output($now + " " + $Testhost[$j] + " is dead")  | Out-File -Append -Force ($scriptpath + "\log.txt")
+                $Latest_stat = ($now + " " + $Testhost[$j] + " is dead")
+                PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                 #パトライト発報
-                Write-Output($now + " patelite's nortification starting...") 
-                Write-Output($now + " patelite's nortification starting...") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                $Latest_stat = ($now + " patelite's nortification starting...")
+                PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                 try{
                     $PateliteFlag = Invoke-WebRequest $PateliteCommand
                 }catch {
@@ -138,12 +180,12 @@ while(1){
                 $now = Get-Date -Format G
                 if ($lite_stat -eq "ConnectFailure" -eq $True){
                     #失敗
-                    Write-Output ($now + " patelite's nortification fault") 
-                    Write-Output ($now + " patelite's nortification fault") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    $Latest_stat = ($now + " patelite's nortification fault")
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                 }else{
                     #成功
-                    Write-Output ($now + " patelite's nortification start") 
-                    Write-Output ($now + " patelite's nortification start") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    $Latest_stat = ($now + " patelite's nortification start")
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
                 }
                 #lite_statをクリアにする。
                 $lite_stat = ""
@@ -158,3 +200,4 @@ while(1){
 #指定時間一時停止
 Start-Sleep -s $SleepTime
 }
+
