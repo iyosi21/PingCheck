@@ -29,7 +29,7 @@ $HostAliveCount =@()
 $HostAliveFlag =@()
 for($host_i=0;$host_i -lt $Hosts.Hosts.Host.Count;$host_i++){
     #Xmlから各ホストの情報を格納する
-    $Testhost += $Hosts.Hosts.Host[$host_i]
+    $Testhost += $Hosts.Hosts.Host[$host_i].value
     #各ホスト死活監視用カウントに０を代入する
     $HostAliveCount += 0
     #各ホスト死活監視フラグにTrueを代入する
@@ -70,6 +70,7 @@ while(1){
                 if($HostAliveFlag[$j] -eq $True){
                     $now = Get-Date -Format G
                     Write-Output($now + " " + $Testhost[$j] + " is alive")
+                    Write-Output($now + " " + $Testhost[$j] + " is alive") | Out-File -Append -Force ($scriptpath + "\log.txt")
                 #今まで死んでいたホストが立ち上がってきた場合
                 }else{
                     $HostAliveFlag[$j] = $True
@@ -78,13 +79,26 @@ while(1){
                     Write-Output ($now + " " + $Testhost[$j] + " is recovered") | Out-File -Append -Force ($scriptpath + "\log.txt")
 
                     #パトライト消灯
-                    $PateliteFlagClr = (Invoke-WebRequest $PateliteCommandClr).Content
-                    if ($PateliteFlag -eq "Success."){
-                        Write-Output ($now + " " + " patelite's nortification clear") | Out-File -Append -Force ($scriptpath + "\log.txt")
-                    }else{
-                        Write-Output ($now + " " + " patelite's nortification clear false") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    try{
+                        $PateliteFlagClr = Invoke-WebRequest $PateliteCommandClr
+                    }catch {
+                        #失敗した場合、ステータスをclr_statに代入
+                        $clr_stat = $_.Exception.status
                     }
-                    
+                    $now = Get-Date -Format G
+                    Write-Output($now + " patelite's nortification clearing...") 
+                    Write-Output($now + " patelite's nortification clearing...") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    if ($clr_stat -eq "ConnectFailure" -eq $True){
+                        #失敗
+                        Write-Output ($now + " patelite's nortification clear fault")
+                        Write-Output ($now + " patelite's nortification clear fault") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    }else{
+                        #成功
+                        Write-Output ($now + " patelite's nortification clear")
+                        Write-Output ($now + " patelite's nortification clear") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                    }
+                    #test_statをクリアにする。
+                    $clr_stat = ""
                 }
             #ping応答がない場合
             }else{
@@ -92,6 +106,7 @@ while(1){
                 if($HostAliveFlag[$j] -eq $True){
                     $now = Get-Date -Format G
                     Write-Output($now + " " + $Testhost[$j] + " is not reachable")
+                    Write-Output($now + " " + $Testhost[$j] + " is not reachable") | Out-File -Append -Force ($scriptpath + "\log.txt")
                 }else{
                     #何もしない。何かする場合はここに書く。
                 }
@@ -102,14 +117,28 @@ while(1){
                 $HostAliveFlag[$j] = $False
                 $now = Get-Date -Format G
                 Write-Output($now + " " + $Testhost[$j] + " is dead") 
-                Write-Output ($now + " " + $Testhost[$j] + " is dead")  | Out-File -Append -Force ($scriptpath + "\log.txt")
+                Write-Output($now + " " + $Testhost[$j] + " is dead")  | Out-File -Append -Force ($scriptpath + "\log.txt")
                 #パトライト発報
-                $PateliteFlag =  (Invoke-WebRequest $PateliteCommand).Content
-                if ($PateliteFlag -eq "Success."){
-                    Write-Output ($now + " " + " patelite's nortification start") | Out-File -Append -Force ($scriptpath + "\log.txt")
-                }else{
-                    Write-Output ($now + " " + " patelite's nortification false") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                Write-Output($now + " patelite's nortification starting...") 
+                Write-Output($now + " patelite's nortification starting...") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                try{
+                    $PateliteFlag = Invoke-WebRequest $PateliteCommand
+                }catch {
+                    #失敗した場合、ステータスをlite_statに代入
+                    $lite_stat = $_.Exception.status
                 }
+                $now = Get-Date -Format G
+                if ($lite_stat -eq "ConnectFailure" -eq $True){
+                    #失敗
+                    Write-Output ($now + " patelite's nortification fault") 
+                    Write-Output ($now + " patelite's nortification fault") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                }else{
+                    #成功
+                    Write-Output ($now + " patelite's nortification start") 
+                    Write-Output ($now + " patelite's nortification start") | Out-File -Append -Force ($scriptpath + "\log.txt")
+                }
+                #lite_statをクリアにする。
+                $lite_stat = ""
 
             }else{
                 #今は一度死ぬと何もしないが、定期的に何か実施する場合はここに入力。
