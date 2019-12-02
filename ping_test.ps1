@@ -1,8 +1,9 @@
 #--------------------------------------------------------------------------
-#メッセージ表示関数（各ホストの死活状態表示、最新のステータスを１行表示）
+#メッセージ表示関数（各ホストの死活状態表示、最新のステータスを２０行表示）
 #--------------------------------------------------------------------------
-function PMessage($Testhost, $HostAliveCount, $HostAliveFlag, $Latest_stat, $scriptPath){
+function PMessage ($Testhost, $HostAliveCount, $HostAliveFlag, $MessageArray_arg, $scriptPath){
     Clear-Host
+    echo "[host status]==========================="
 
     for($j=0;$j -lt $Testhost.Count; $j++){
         $pramhoshi=""
@@ -15,13 +16,31 @@ function PMessage($Testhost, $HostAliveCount, $HostAliveFlag, $Latest_stat, $scr
 
         echo($Testhost[$j] + " " + $echoAlive)
     }
-    echo $Latest_stat
-    echo $Latest_stat | Out-File -Append -Force ($scriptpath + "\log.txt")
+    echo ""
+    echo "[latest message]========================"
+
+    foreach ($Messe in $MessageArray){
+        echo $Messe
+    }
+    echo $MessageArray_arg[0] | Out-File -Append -Force ($scriptpath + "\log.txt")
+}
+
+#このfunctionで送られてきたメッセージに追加して、配列を返す
+function LatestMessage($MessageArray, $Latest_stat){
+    $tempArray = @()
+    #最終的に表示できるログの表示はConfigで設定できるようにしたい
+    for($j=0;$j -lt $MessageArray.Count; $j++){
+        $tempArray += ""
+    }
+    for($j=1;$j -lt $MessageArray.Count; $j++){
+        $tempArray[$j] = $MessageArray[$j - 1]
+    }
+    $tempArray[0] = $Latest_stat
+    return $tempArray
 }
 
 #--------------------------------------------------------------------------
-メイン処理
-
+#メイン処理
 #--------------------------------------------------------------------------
 #実行ファイルのパスを格納
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -45,6 +64,16 @@ catch [System.Threading.AbandonedMutexException]
     $result = $WS.Popup("前回の処理は強制終了しました。監視を再開します。")
 }
 
+#--------------------------------------------------------------------------
+#PowerShellバージョンチェック(3.0以上でなければ起動しない)
+#--------------------------------------------------------------------------
+$V_Check = (Get-Host).Version.Major
+if($V_Check -ge 3){
+    echo "PowerShellのバージョンが3.0以上です。"
+}else{
+    $result = $WS.Popup("PowerShellのバージョンが3.0未満のためScriptを終了します。")
+    exit
+}
 
 #--------------------------------------------------------------------------
 #監視対象（ホスト名orIP）の変数
@@ -92,8 +121,13 @@ $Config = [XML](Get-Content ($scriptPath + "\Config.xml"))
 #メッセージ変数
 #--------------------------------------------------------------------------
 $Latest_stat　#最新ステータス
+$MessageArray = @() #メッセージ表示用の配列
 $echoAlive　#ステータス表示の死活表示
 $pramhoshi #Ping失敗した時の星の数
+
+for($j=0;$j -lt 20;$j++){
+    $MessageArray += ""
+}
 
 
 $WS = New-Object -com Wscript.Shell
@@ -104,11 +138,17 @@ $WS = New-Object -com Wscript.Shell
 $result = $WS.Popup("Ping監視を開始します")
 $now = Get-Date -Format G
 $Latest_stat = ($now + " Ping Monitoring Start")
-PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+$MessageArray = LatestMessage $MessageArray $Latest_stat
+PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
 #--------------------------------------------------------------------------
 #メインループ
 #--------------------------------------------------------------------------
 while(1){
+    #logファイルが50kbyte以上になるとoldファイルを作る。
+    if ((Get-ChildItem ($scriptpath + "\log.txt")).Length -ge 51200){
+    Move-Item ($scriptpath + "\log.txt") log-old.txt -Force
+    }
+
     for($j=0;$j -lt $Testhost.Count; $j++){
         #ping送付実施
         $pingAlive = @(Test-Connection $Testhost[$j] -Quiet -Count $PingCount)
@@ -118,13 +158,15 @@ while(1){
                 if($HostAliveFlag[$j] -eq $True){
                     $now = Get-Date -Format G
                     $Latest_stat = ($now + " " + $Testhost[$j] + " is alive")
-                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                    $MessageArray = LatestMessage $MessageArray $Latest_stat
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                 #今まで死んでいたホストが立ち上がってきた場合
                 }else{
                     $HostAliveFlag[$j] = $True
                     $now = Get-Date -Format G
                     $Latest_stat = ($now + " " + $Testhost[$j] + " is recovered")
-                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                    $MessageArray = LatestMessage $MessageArray $Latest_stat
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
 
                     #パトライト消灯
                     try{
@@ -135,17 +177,20 @@ while(1){
                     }
                     $now = Get-Date -Format G
                     $Latest_stat = ($now + " patelite's nortification clearing...")
-                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                    $MessageArray = LatestMessage $MessageArray $Latest_stat
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
 
                     if ($clr_stat -eq "ConnectFailure" -eq $True){
                         #失敗
                         $Latest_stat = ($now + " patelite's nortification clear fault")
-                        PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                        $MessageArray = LatestMessage $MessageArray $Latest_stat
+                        PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
 
                     }else{
                         #成功
                         $Latest_stat = ($now + " patelite's nortification clear")
-                        PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                        $MessageArray = LatestMessage $MessageArray $Latest_stat
+                        PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                     }
                     #test_statをクリアにする。
                     $clr_stat = ""
@@ -156,7 +201,8 @@ while(1){
                 if($HostAliveFlag[$j] -eq $True){
                     $now = Get-Date -Format G
                     $Latest_stat = ($now + " " + $Testhost[$j] + " is not reachable")
-                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                    $MessageArray = LatestMessage $MessageArray $Latest_stat
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                 }else{
                     #何もしない。何かする場合はここに書く。
                 }
@@ -167,10 +213,12 @@ while(1){
                 $HostAliveFlag[$j] = $False
                 $now = Get-Date -Format G
                 $Latest_stat = ($now + " " + $Testhost[$j] + " is dead")
-                PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                $MessageArray = LatestMessage $MessageArray $Latest_stat
+                PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                 #パトライト発報
                 $Latest_stat = ($now + " patelite's nortification starting...")
-                PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                $MessageArray = LatestMessage $MessageArray $Latest_stat
+                PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                 try{
                     $PateliteFlag = Invoke-WebRequest $PateliteCommand
                 }catch {
@@ -181,11 +229,13 @@ while(1){
                 if ($lite_stat -eq "ConnectFailure" -eq $True){
                     #失敗
                     $Latest_stat = ($now + " patelite's nortification fault")
-                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                    $MessageArray = LatestMessage $MessageArray $Latest_stat
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                 }else{
                     #成功
                     $Latest_stat = ($now + " patelite's nortification start")
-                    PMessage $Testhost $HostAliveCount $HostAliveFlag $Latest_stat $scriptPath
+                    $MessageArray = LatestMessage $MessageArray $Latest_stat
+                    PMessage $Testhost $HostAliveCount $HostAliveFlag $MessageArray $scriptPath
                 }
                 #lite_statをクリアにする。
                 $lite_stat = ""
